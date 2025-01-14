@@ -1,0 +1,52 @@
+# Node.js dependencies
+node_modules/
+
+# Diretórios e arquivos de log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Diretórios de cache
+/.pnp
+/.pnp.js
+
+# Diretórios e arquivos de ambiente
+.env
+.env.local
+.env.*.local
+
+# Arquivos de banco de dados locais (se houver)
+database.sqlite
+db.json
+*.db
+
+# Diretórios e arquivos de cache específicos do bot (se houver)
+/.cache
+/.data
+
+# Dependências de produção geradas durante build ou deploy
+dist/
+build/
+
+# Arquivos temporários do sistema operacional
+.DS_Store           # Arquivo do macOS
+Thumbs.db           # Arquivo do Windows
+
+# Arquivos de teste
+test-results/
+
+# Diretórios de testes específicos (se houver)
+tests/
+
+# Arquivos de configuração do editor (ex: VSCode)
+.vscode/
+
+# Diretórios ou arquivos de backup e temporários
+*.bak
+*.tmp
+*.swp
+
+# Arquivos de pacotes (se não forem necessários)
+package-lock.json
+yarn.lock
