@@ -1,11 +1,11 @@
-// logger.js
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
 
 // Cria o diretório de logs, se não existir
-const logDir = path.join(__dirname, 'logs');
-if (!require('fs').existsSync(logDir)) {
-    require('fs').mkdirSync(logDir, { recursive: true });
+const logDir = path.join(__dirname, '../../logs');
+if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
 }
 
 // Configura o logger

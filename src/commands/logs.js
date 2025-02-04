@@ -1,5 +1,5 @@
 const Discord = require('discord.js');
-const cor = require('../../config').discord.color;
+const cor = require('../config').discord.color;
 const fs = require('fs');
 const path = require('path');
 

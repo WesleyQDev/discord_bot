@@ -1,4 +1,4 @@
-const logger = require('../../logger');
+const logger = require('../../utils/logger');
 require('dotenv').config(); // Carrega as variáveis do .env
 const { Client, GatewayIntentBits } = require('discord.js');
 const colors = require('colors'); // Importa a biblioteca colors
