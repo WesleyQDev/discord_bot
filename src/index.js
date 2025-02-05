@@ -43,6 +43,17 @@ const spamTracker = new Map();
 const spamThreshold = 5;
 const spamInterval = 10000; // 10 segundos
 
+// Cache para respostas da API
+const responseCache = new Map();
+const CACHE_DURATION = 1000 * 60 * 5; // 5 minutos
+
+// Rate limiting
+const rateLimiter = new Map();
+const RATE_LIMIT = {
+    window: 60000, // 1 minuto
+    maxRequests: 30
+};
+
 // Função para gerar mensagem de boas-vindas via IA sobre o servidor Blade Hunters
 async function generateWelcomeMessage() {
     try {
@@ -80,7 +91,7 @@ client.on('ready', () => {
 // Log de mensagens deletadas (envia log no canal "mod-logs", se existir)
 client.on('messageDelete', async (message) => {
     if (!message.partial && message.author && !message.author.bot && message.guild) {
-        const logChannel = message.guild.channels.cache.find(ch => ch.name === 'mod-logs');
+        const logChannel = message.guild.channels.cache.find(ch => ch.name === 'moderator-only');
         if (logChannel) {
             logChannel.send(`Mensagem deletada de ${message.author.tag}: ${message.content}`);
         }
@@ -243,6 +254,24 @@ async function shouldRespond(message) {
 // Envia resposta do bot através da API configurada
 async function handleBotResponse(message) {
     try {
+        // Verificar rate limit
+        const userLimit = rateLimiter.get(message.author.id) || [];
+        const now = Date.now();
+        const recentRequests = userLimit.filter(time => now - time < RATE_LIMIT.window);
+        
+        if (recentRequests.length >= RATE_LIMIT.maxRequests) {
+            await message.reply('Muitas requisições! Aguarde um momento.');
+            return;
+        }
+
+        // Verificar cache
+        const cacheKey = message.content.toLowerCase();
+        const cachedResponse = responseCache.get(cacheKey);
+        if (cachedResponse && (now - cachedResponse.timestamp < CACHE_DURATION)) {
+            await sendResponse(message, cachedResponse.content);
+            return;
+        }
+
         const conversationLog = await buildConversationLog(message);
         
         const response = await axios.post(
@@ -262,11 +291,53 @@ async function handleBotResponse(message) {
             }
         );
 
-        await sendResponse(message, response.data.choices[0].message.content);
+        const responseContent = response.data.choices[0].message.content;
+        
+        // Atualizar cache
+        responseCache.set(cacheKey, {
+            content: responseContent,
+            timestamp: now
+        });
+
+        // Atualizar rate limit
+        rateLimiter.set(message.author.id, [...recentRequests, now]);
+
+        await sendResponse(message, responseContent);
+        
+        // Adicionar reações com base no sentimento
+        await addMessageReactions(message, responseContent);
+        
         updateCooldowns(message);
     } catch (error) {
         logger.error(`Erro na resposta: ${error}`);
-        await message.reply('Sistema sobrecarregado! Tente novamente.');
+        await handleErrorRecovery(message, error);
+    }
+}
+
+// Função para adicionar reações baseadas no sentimento
+async function addMessageReactions(message, content) {
+    const positiveEmojis = ['👍', '😊', '🎉', '❤️'];
+    const negativeEmojis = ['👎', '😢', '😡', '💔'];
+    
+    const isPositive = /\b(bom|legal|ótimo|feliz|adorei)\b/i.test(content);
+    const isNegative = /\b(ruim|triste|chato|irritado|raiva)\b/i.test(content);
+    
+    const emojis = isPositive ? positiveEmojis : (isNegative ? negativeEmojis : []);
+    
+    if (emojis.length > 0) {
+        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+        await message.react(randomEmoji).catch(() => {});
+    }
+}
+
+// Função para tratamento de erros
+async function handleErrorRecovery(message, error) {
+    if (error.response?.status === 429) {
+        await message.reply('Estou um pouco sobrecarregado! Tente novamente em alguns minutos.');
+    } else if (error.code === 'ECONNABORTED') {
+        await message.reply('Tempo de resposta excedido! Tente novamente.');
+    } else {
+        await message.reply('Ops! Algo deu errado. Tente novamente mais tarde.');
     }
 }
 
@@ -332,6 +403,28 @@ function updateCooldowns(message) {
     channelCooldowns.set(message.channel.id, now);
     userCooldowns.set(message.author.id, now);
 }
+
+// Limpeza periódica do cache e rate limit
+setInterval(() => {
+    const now = Date.now();
+    
+    // Limpar cache
+    for (const [key, value] of responseCache.entries()) {
+        if (now - value.timestamp > CACHE_DURATION) {
+            responseCache.delete(key);
+        }
+    }
+    
+    // Limpar rate limit
+    for (const [userId, timestamps] of rateLimiter.entries()) {
+        const validTimestamps = timestamps.filter(time => now - time < RATE_LIMIT.window);
+        if (validTimestamps.length === 0) {
+            rateLimiter.delete(userId);
+        } else {
+            rateLimiter.set(userId, validTimestamps);
+        }
+    }
+}, 60000); // Executa a cada minuto
 
 // Gerenciamento de erros não tratados
 process.on('unhandledRejection', (error) => {

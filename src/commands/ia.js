@@ -1,17 +1,17 @@
-
-const Discord = require('discord.js');
+const { ApplicationCommandType, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
-const { ApplicationCommandType, ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
+const config = require('../config');
+const logger = require('../utils/logger');
 
 module.exports = {
     name: 'ia',
-    description: 'Faça uma pergunta para a IA',
-    type: Discord.ApplicationCommandType.ChatInput,
+    description: 'Converse com o BladeBot usando IA',
+    type: ApplicationCommandType.ChatInput,
     options: [
         {
-            name: 'pergunta',
-            description: 'O que você quer perguntar?',
-            type: Discord.ApplicationCommandOptionType.String,
+            name: 'mensagem',
+            description: 'O que você quer dizer para o bot',
+            type: 3, // STRING
             required: true
         }
     ],
@@ -19,21 +19,22 @@ module.exports = {
     run: async (client, interaction) => {
         await interaction.deferReply();
         
-        const pergunta = interaction.options.getString('pergunta');
-
         try {
+            const userMessage = interaction.options.getString('mensagem');
+
             const response = await axios.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 {
                     model: 'llama-3.3-70b-versatile',
                     messages: [
-                        { 
-                            role: 'system', 
-                            content: 'Você é um assistente útil e amigável. Responda de forma concisa.'
+                        {
+                            role: 'system',
+                            content: `Você é o BladeBot, um assistente virtual divertido e sarcástico do servidor Blade Hunters. 
+                            Mantenha suas respostas curtas (máximo 250 caracteres) e use emojis ocasionalmente.`
                         },
                         {
                             role: 'user',
-                            content: pergunta
+                            content: userMessage
                         }
                     ],
                     max_tokens: 150,
@@ -47,19 +48,29 @@ module.exports = {
                 }
             );
 
-            const resposta = response.data.choices[0].message.content;
-            
-            const embed = new Discord.EmbedBuilder()
-                .setColor('#0099ff')
-                .setTitle('Resposta da IA')
-                .setDescription(resposta)
-                .setFooter({ text: 'Powered by Groq AI' });
+            const botResponse = response.data.choices[0].message.content;
+
+            const embed = new EmbedBuilder()
+                .setColor(config.discord.color)
+                .setAuthor({
+                    name: 'BladeBot',
+                    iconURL: client.user.displayAvatarURL()
+                })
+                .addFields(
+                    { name: '📨 Sua mensagem', value: userMessage },
+                    { name: '🤖 Resposta', value: botResponse }
+                )
+                .setFooter({ text: 'Powered by Groq AI' })
+                .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
-            
+
         } catch (error) {
-            console.error(error);
-            await interaction.editReply('❌ Ocorreu um erro ao processar sua pergunta.');
+            logger.error(`Erro no comando ia: ${error}`);
+            await interaction.editReply({
+                content: '❌ Ops! Ocorreu um erro ao processar sua mensagem. Tente novamente mais tarde.',
+                ephemeral: true
+            });
         }
     }
 };
