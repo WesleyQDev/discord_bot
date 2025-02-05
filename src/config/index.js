@@ -24,6 +24,8 @@ const config = {
   // 100 palavras adicionais:
   'https',
   'discordapp.com',
+  'youtube.com/',
+  'twitch.tv/',
   'sex',
   'porn',
   'xxx',
@@ -39,9 +41,6 @@ const config = {
   'lsd',
   'drug',
   'drugs',
-  'weapon',
-  'bomb',
-  'gun',
   'knife',
   'shoot',
   'kill',
