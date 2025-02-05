@@ -3,7 +3,7 @@ require('dotenv').config(); // Carrega as variáveis do .env
 const { Client, GatewayIntentBits } = require('discord.js');
 const colors = require('colors'); // Importa a biblioteca colors
 
-// Crie uma nova instância do cliente do Discord
+// Crie uma nova instância do cliente do Discord  s
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
