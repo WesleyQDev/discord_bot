@@ -25,7 +25,7 @@ module.exports = {
             const response = await axios.post(
                 'https://api.groq.com/openai/v1/chat/completions',
                 {
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'llama-3.2-90b-vision-preview',
                     messages: [
                         {
                             role: 'system',
@@ -37,8 +37,8 @@ module.exports = {
                             content: userMessage
                         }
                     ],
-                    max_tokens: 150,
-                    temperature: 0.7
+                    max_tokens: 1024,
+                    temperature: 1
                 },
                 {
                     headers: {
