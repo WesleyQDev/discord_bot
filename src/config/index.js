@@ -25,7 +25,7 @@ const config = {
         question: 0.45,
         greeting: 0.30,
         emotion: 0.20,
-        general: 0.15
+        general: 1
     }
 };
 

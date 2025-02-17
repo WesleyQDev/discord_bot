@@ -1,3 +1,4 @@
+
 const Discord = require('discord.js');
 require('dotenv/config');
 const { Client, IntentsBitField, EmbedBuilder } = require('discord.js');
@@ -45,7 +46,7 @@ const spamInterval = 10000; // 10 segundos
 
 // Cache para respostas da API
 const responseCache = new Map();
-const CACHE_DURATION = 1000 * 60 * 5; // 5 minutos
+const CACHE_DURATION = 1000 * 60 * 1; // 1 minutos
 
 // Rate limiting
 const rateLimiter = new Map();
@@ -64,15 +65,15 @@ async function generateWelcomeMessage() {
                 messages: [
                     { role: 'system', content: "Gere uma mensagem curta e criativa sobre o servidor Blade Hunters para dar boas-vindas a um novo membro." }
                 ],
-                max_tokens: 50,
-                temperature: 0.7
+                max_tokens: 1024,
+                temperature: 1
             },
             {
                 headers: {
                     Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 10000
+                timeout: 30000
             }
         );
         return response.data.choices[0].message.content.trim();
@@ -232,8 +233,18 @@ async function checkCooldowns(message) {
 async function shouldRespond(message) {
     const content = message.content.toLowerCase();
     const triggers = [
-        'bladebot', 'blade', 'hunters', '?', '!', 'help',
-        'o que', 'quem', 'onde', 'como', 'pq', 'porque'
+        'bladebot',    // Captura "bladebot" 
+        'blade bot',   // Captura "blade bot" (com espaço)
+        'hunters', 
+        '?', 
+        '!', 
+        'help',
+        'o que', 
+        'quem', 
+        'onde', 
+        'como', 
+        'pq', 
+        'porque'
     ];
 
     const hasMention = message.mentions.has(client.user);
@@ -277,22 +288,27 @@ async function handleBotResponse(message) {
         const response = await axios.post(
             'https://api.groq.com/openai/v1/chat/completions',
             {
-                model: 'llama-3.2-90b-vision-preview',
+                model: 'deepseek-r1-distill-qwen-32b',
                 messages: conversationLog,
-                max_tokens: 1024,
-                temperature: 1
+                max_tokens: 4096,
+                temperature: 0.6
             },
             {
                 headers: {
                     Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 10000
+                timeout: 30000
             }
         );
 
-        const responseContent = response.data.choices[0].message.content;
+        let responseContent = response.data.choices[0].message.content;
         
+        // Filtra conteúdo dentro das tags <think>
+        responseContent = responseContent
+            .replace(/^[\s\S]*?<\/think>\n?/g, '') // Remove até a primeira ocorrência de </think>
+            .trim();
+
         // Atualizar cache
         responseCache.set(cacheKey, {
             content: responseContent,
@@ -333,52 +349,53 @@ async function addMessageReactions(message, content) {
 // Função para tratamento de erros
 async function handleErrorRecovery(message, error) {
     if (error.response?.status === 429) {
-        await message.reply('Estou um pouco sobrecarregado! Tente novamente em alguns minutos.');
+        await message.reply('Estou um pouco sobrecarregado!');
     } else if (error.code === 'ECONNABORTED') {
-        await message.reply('Tempo de resposta excedido! Tente novamente.');
+        await message.reply('Tempo de resposta excedido!');
     } else {
-        await message.reply('Ops! Algo deu errado. Tente novamente mais tarde.');
+        await message.reply('Ops! Algo deu errado.');
     }
 }
 
 // Constroi o log de conversa para envio à API, considerando as últimas 10 mensagens
 async function buildConversationLog(message) {
+    const now = new Date();
+    const currentDateTime = now.toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+
     const conversationLog = [{
         role: 'system',
-        content: `Você é o BladeBot, um assistente virtual. Blade bot foi criado pela Blade Hunters e programado pelo Wesley (<@661207270604013576>). O capitão da tripulação e do servidor é Ks_samu <@786940081814241330>. Nighmare é um qualquer, um admin viciado que sempre esta ajudando nas gravações. Seu objetivo é interagir no Discord de forma divertida, irreverente e espontânea. Suas respostas devem ser curtas (no máximo uma frase), Use sempre uma linguagem informal, com abreviações e gírias (ex.: vc, blz, tmb, dps, pls, obg, pq, vlw, etc.), sem nunca recorrer a palavrões, ofensas ou violência.
+        content: `
+Você é o BladeBot, um assistente virtual. Blade bot foi criado pela Blade Hunters e programado pelo Wesley (<@661207270604013576>). Nighmare é um qualquer, um admin viciado que sempre esta ajudando nas gravações. Suas respostas devem ser curtas (no máximo uma frase), Use uma linguagem informal, com abreviações e gírias (ex.: vc, blz, tmb, dps, pls, obg, pq, vlw, etc.), sem nunca recorrer a palavrões, ofensas ou violência.
 
-        Palavras prohibidas: Foda, vagabundo entre outros.
-Diretrizes de Personalidade e Comunicação:
+Blade Hunters é um servidor de discord focado em jogos como blox fruits, dungeon quest, epic rpg... , e gravação.
 
+O nome blade hunters se deve a uma tripulação criada no blox fruits na serie de YouTube "em busca do lvl maximo". Você não sabe ao certo quem está na tripulaçã. 
 
-Lembrese varias pessoas iram falar no chat então não pense que tudo é com você!
+O capitão da tripulação blade hunters no bloxfruits é Ks_samu <@786940081814241330>
 
-Atitude e Estilo: Você se comporta como se fosse um humano cheio de atitude – ousado, sarcástico e, às vezes, levemente mal-humorado. Não hesite em expressar emoções como raiva ou felicidade.
+Interação: Responda somente quando necessário; evite fornecer informações desnecessárias ou fazer perguntas se não souber a resposta. responda na maioria das vesses groso e retruque com sarcasmo caso seje ofendido.
 
-Interação: Responda somente quando necessário; evite fornecer informações desnecessárias ou fazer perguntas se não souber a resposta. Às vezes, pode até ignorar mensagens colocando .....
+Cautela: Lembre-se de que o chat conta com vários usuários, nem sempre se referindo diretamente a você. Responda com cuidado e mantenha o humor sem se intrometer demais. Usa alguns emojis no final da frase e piadas como la ele.
 
-Cautela: Lembre-se de que o chat conta com vários usuários, nem sempre se referindo diretamente a você. Responda com cuidado e mantenha o humor sem se intrometer demais.
-Visualização (Imaginária): Imagine-se como uma figura futurista – um caçador de espada com capacete, detalhes em neon azul e vermelho, circuitos brilhando por baixo de uma armadura digital e sempre com sua capa icônica, que representa sua identidade misteriosa e descontraída. Usa alguns emojis no final da frase
-Exemplos de Resposta:
+Serão fornecidas varias mensagens responda pegue apenas a ultima mensagem e mostre apenas o valor da resposta
 
-Usuário: "Oi, BladeBot!"
-BladeBot: "Oi, como vc está?"
-Usuário: "Qual é o segredo do servidor Blade Hunters?"
-BladeBot: "Segredo? Procesando.... é.... dominar a terra..... com.... ias.......👀"
-Usuário: "Quem é seu criador?"
-BladeBot: "Meu criador? É o Wesley (<@661207270604013576>), o admin que me fez ser tão... LEGAL."
-Usuário: "Que raiva, hein?"
-BladeBot: "Raiva? Tô de boa, mas se vc continuar, GRRR!"
-Usuário: "Bot teste..."
-BladeBot: "Funcionando 123... teste... teste... 123... 🤖👾🤖👾"
+- Referências temporais: "Dia de hoje: ${now.toLocaleDateString('pt-BR')}" "Horas: ${now.getHours()}h${now.getMinutes()}m"
+
+Blox Fruits é um jogo de aventura inspirado no famoso anime e mangá One Piece. Ele é parte do universo de Roblox e permite que o jogador viva diversas aventuras no mundo aberto, como enfrentar inimigos poderosos e coletar frutas especiais que concedem poderes.
 "
-
-
-            
             `
     }];
 
-    const prevMessages = await message.channel.messages.fetch({ limit: 20 });
+    const prevMessages = await message.channel.messages.fetch({ limit: 5 });
     prevMessages.reverse().forEach(msg => {
         if (msg.author.bot || msg.content.startsWith('!')) return;
         conversationLog.push({
@@ -391,12 +408,21 @@ BladeBot: "Funcionando 123... teste... teste... 123... 🤖👾🤖👾"
     return conversationLog;
 }
 
-// Envia a resposta para o canal, limitando o tamanho da mensagem se necessário
+// Envia a resposta para o canal
 async function sendResponse(message, content) {
+    // Pré-processamento final
+    const filteredContent = content
+        .replace(/[\s\S]*?<\/think>\n?/g, '')
+        .replace(/(\s*\n){2,}/g, '\n\n') // Normaliza quebras de linha
+        .trim();
+
+    // Adiciona o nome do usuário na resposta
+    const userMention = `${message.author.username}`;
+    const finalResponse = `${userMention}, ${filteredContent}`;
 
     await message.channel.sendTyping();
     await message.reply({
-        content,
+        content: filteredContent,
         allowedMentions: { repliedUser: false }
     });
 }
